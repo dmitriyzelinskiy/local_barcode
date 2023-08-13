@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"> 
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>  
+  <script type="text/javascript" src="jquery-barcode_1.js"></script>  
+  <!-- https://barcode-coder.com/en/barcode-jquery-plugin-201.html -->
+  <title>Barcode Generator</title>
+  <style type="text/css">
+
+
+    main{
+      width: 100hw;
+      height: 20rem;
+      background-color: #ffffff;
+      padding: 1rem;
+    }
+
+
+    .panel {
+      display: flex;
+      flex-flow: row;
+      align-items: stretch;
+      padding: 1rem;
+      background-color: #fff;
+    }
+
+    .barInput>input{
+      border: 1px solid #8db7ec;
+      padding: 0.3rem 0.4rem;
+      width: 25rem;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+    }
+
+    .barDisplay {
+      display: grid;
+      justify-items: center;
+      grid-template-columns: auto;
+      grid-template-rows: auto;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+
+    .barDisplay>p{
+      font-family: 'Share Tech Mono', monospace;
+      width: 17rem;
+      word-wrap: anywhere;
+      text-align: center;
+      margin: 0;
+      align-self: baseline;
+      letter-spacing: -1px;
+      background-color: #fff;
+    }
+    .barDisplay>p.hidden {
+      display: none;
+    }
+
+    .barDisplay>#dm_code{
+      align-self: baseline;
+    }
+
+
+    .info>ul{
+      list-style: none;
+      padding: 0;
+      margin: 0;
+
+    }
+
+    .info>ul>.error{
+      color: #550000;
+    }
+    
+    .info>ul>.warn{
+      color: #6c6ebf;
+    }
+
+    .typeBtns{
+      display: grid;
+      grid-template-columns: auto auto auto;
+      grid-template-rows: auto auto;
+      width: fit-content;
+      grid-template-areas: "hri hri hri"
+      ". . .";
+    }
+
+    .typeBtns>label {
+      display: block;
+      align-self: center;
+      padding: 0.5rem;
+      grid-area: hri;
+    }
+
+    .typeBtns>button {
+      width: 7rem;
+      height: 1.6rem;
+      color: #353535;
+      border-radius: 2px;
+      box-shadow: 3px 3px 3px #777;
+      background-color: #f8f8f8;
+      margin: 0.5rem;
+      border: 1px solid #bdcae1;
+      display: block;
+    }
+
+    .typeBtns>button.selected{
+      background-color: #ffffff;
+      border: 1px solid #8db7ec;
+      box-shadow: 1px 1px 2px #33b;
+    }
+
+  </style>
+</head>
+<body></body>
+
+  <script type="text/javascript">
+
+    const G={
+      sc:7,
+      barTypes:[ "code39", "code128", "datamatrix"],
+      keys:{
+        27:()=>{
+          logMessage('','clear')
+          G.dom_input.value=''
+          G.dom_input.focus()
+        },
+      },
+      barcodeSelected:"datamatrix",
+      dom_btns:[],
+    }
+
+
+    const field=document.createElement("main")
+
+
+
+    field.append(makeTypeBtns(G.barTypes))
+    field.append(makeInput())
+    field.append(makeBarcodePanel())
+    field.append(makeInfoPanel())
+    
+    document.body.append(field)
+    document.body.onkeydown=hotKeys
+
+    logMessage('Type or paste string for the parcode. Esc to erase','warn')
+    
+    function makeBarcodePanel() {
+      const panel=document.createElement("div")
+      panel.className="barDisplay panel"
+      const barcodeOut=document.createElement("div")
+      const hriText=document.createElement("p")
+      hriText.className="hritext"
+      barcodeOut.id="dm_code"
+      G.dom_barcode=barcodeOut
+      G.dom_hri=hriText
+      panel.append(barcodeOut)
+      panel.append(hriText)
+    
+      return panel
+    }
+
+
+    function makeInfoPanel() {
+      const panel=document.createElement("div")
+      panel.className="info panel"
+      const list=document.createElement("ul")
+      list.id="messages"
+      G.dom_error=list
+      panel.append(list)
+    
+      return panel
+    }
+
+    function hotKeys(e) {
+      if (e.target.id!==G.dom_input.id) {
+        if (G.keys[e.keyCode]!=undefined) {
+          G.keys[e.keyCode]()
+          return
+        } 
+      }
+    }
+
+
+    function logMessage(message,type) {
+      const mesObj=document.createElement("li")
+      switch (type) {
+        case "error": 
+          mesObj.append(document.createTextNode(message))
+          mesObj.classList.add("error")
+          G.dom_error.append(mesObj)
+        break;
+        case "warn": 
+          mesObj.append(document.createTextNode(message))
+          mesObj.classList.add("warn")
+          G.dom_error.append(mesObj)
+        break;
+        case "clear": 
+          G.dom_error.innerHTML='';
+        break;        
+      }
+    }
+
+
+    function makeInput() {
+      const panel=document.createElement("div")
+      panel.className="barInput panel"
+      const input=document.createElement("input")
+      input.id="raw_text"
+      input.oninput=clickBarcode
+      G.dom_input=input
+      panel.append(input)
+    
+      return panel
+    }
+
+
+
+    function makeTypeBtns(barTypes) {
+      const panel=document.createElement("div")
+      panel.className="typeBtns panel"
+      barTypes.forEach(bt=>{
+        const btn=document.createElement("button")
+        btn.innerText = bt
+        btn.name=bt
+        btn.id=bt
+        if (G.barcodeSelected===bt) {
+          btn.classList.add("selected")
+        }
+        btn.onclick=clickTypeBtn
+        G.dom_btns.push(btn)
+        panel.append(btn)
+      })
+      const hri=document.createElement("input")
+      hri.type='checkbox'
+      hri.checked=true
+      hri.oninput=clickHRIChk
+      const hril=document.createElement("label")
+      hril.innerText="HRI"
+      hril.append(hri)
+
+      panel.append(hril)
+      return panel
+    }
+    
+
+
+    function clickTypeBtn(e) {
+      G.dom_btns.forEach(b=>{
+        b.classList.remove("selected")
+      })
+      // console.log(e.target)
+      G.barcodeSelected=e.target.name
+      e.target.classList.add("selected")
+      clickBarcode(G.dom_input)
+    }
+
+
+    function clickHRIChk(e) {
+      if (e.target.checked) {
+        G.dom_hri.classList.remove("hidden")
+      } else {
+        G.dom_hri.classList.add("hidden")
+      }
+    }
+
+
+    function clickBarcode(e) {
+      const rawtext = G.dom_input.value
+      const clean = filter_text(rawtext)
+      G.dom_hri.innerText=clean.filtered
+      $("#dm_code").barcode(
+        clean.filtered
+        , G.barcodeSelected
+        , {moduleSize:G.sc , showHRI:false, output:'svg',}
+      )
+    }
+
+
+
+
+
+
+    // let text = "12–34567®890"
+
+    function filter_text(raw_text) {
+      let filtered = "";
+      let errors=[]
+      for (let char of raw_text.split('') ) {
+        if (char.charCodeAt() > 127) {
+          errors.push(`on char '${char}' ASCII:${char.charCodeAt()}. Only character codes 32-127 allowed.`)
+          // break
+        } else {
+          filtered+=char
+        }
+      }
+      errors.forEach(m => {
+          logMessage( `Error ${m}`,'error')
+          console.log('%c Error',"color: red ;font-weight:bold;", m) 
+        })
+      G.dom_input.value=filtered
+      return {filtered:filtered,errors:errors}
+    }
+    
+
+
+
+
+
+
+
+
+  </script>
+
+
+</html>
