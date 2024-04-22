@@ -6,8 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"> 
-  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>  
-  <script type="text/javascript" src="jquery-barcode_1.js"></script>  
+  <script type="text/javascript" src="barcodes.js"></script>
   <!-- https://barcode-coder.com/en/barcode-jquery-plugin-201.html -->
   <title>Barcode Generator</title>
   <style type="text/css">
@@ -18,6 +17,11 @@
       height: 20rem;
       background-color: #ffffff;
       padding: 1rem;
+    }
+
+    nav{
+      display: flex;
+      flex-direction: column-reverse;
     }
 
 
@@ -44,9 +48,15 @@
       grid-template-rows: auto;
       padding-top: 2rem;
       padding-bottom: 2rem;
+      min-height: 1rem;
+      max-height: 20rem;
+      transition-property: max-height;
+      transition-timing-function: cubic-bezier(.61,.02,.33,.98);
+      transition-duration: 300ms;
     }
 
     .barDisplay>p{
+/*      display: none;*/
       font-family: 'Share Tech Mono', monospace;
       width: 17rem;
       word-wrap: anywhere;
@@ -56,7 +66,8 @@
       letter-spacing: -1px;
       background-color: #fff;
     }
-    .barDisplay>p.hidden {
+
+    .hidden {
       display: none;
     }
 
@@ -64,6 +75,13 @@
       align-self: baseline;
     }
 
+    .info{
+/*      top: 90vh;*/
+      position: absolute;
+      transition-property: top;
+      transition-timing-function: cubic-bezier(.61,.02,.33,.98);
+      transition-duration: 300ms;
+    }
 
     .info>ul{
       list-style: none;
@@ -128,26 +146,38 @@
           logMessage('','clear')
           G.dom_input.value=''
           G.dom_input.focus()
+          G.dom_barcode.innerHTML=''
+          G.dom_hri.innerHTML=''
+          G.dom_nav.classList.remove('hidden')
+
         },
       },
       barcodeSelected:"datamatrix",
       dom_btns:[],
     }
 
+    const BARCODE = new LocBar({moduleSize:G.sc , output:'svg', fontFamily:'Share Tech Mono', fontSize: 15})
+
+
 
     const field=document.createElement("main")
+    
+    const nav=document.createElement("nav")
 
+    const barElement=makeBarcodePanel()
 
+    G.dom_nav = nav
 
-    field.append(makeTypeBtns(G.barTypes))
-    field.append(makeInput())
-    field.append(makeBarcodePanel())
+    nav.append(makeInput())
+    nav.append(makeTypeBtns(G.barTypes))
+    field.append(nav)
+    field.append(barElement)
     field.append(makeInfoPanel())
     
     document.body.append(field)
     document.body.onkeydown=hotKeys
 
-    logMessage('Type or paste string for the parcode. Esc to erase','warn')
+    // logMessage('Type or paste string for the barcode. Esc to erase','warn')
     
     function makeBarcodePanel() {
       const panel=document.createElement("div")
@@ -186,6 +216,8 @@
     }
 
 
+
+
     function logMessage(message,type) {
       const mesObj=document.createElement("li")
       switch (type) {
@@ -211,23 +243,33 @@
       panel.className="barInput panel"
       const input=document.createElement("input")
       input.id="raw_text"
-      input.oninput=clickBarcode
+      input.oninput=debounce(clickBarcode, 130)
       G.dom_input=input
+      G.dom_input.tabindex="1"
       panel.append(input)
-    
       return panel
     }
 
-
+    function debounce(fn, duration) {
+      let timer
+      return function() {
+        clearTimeout(timer)
+        timer = setTimeout(fn, duration)
+      }
+    }
 
     function makeTypeBtns(barTypes) {
       const panel=document.createElement("div")
+      G.dom_btnPanel = panel
       panel.className="typeBtns panel"
+      let count=2
       barTypes.forEach(bt=>{
         const btn=document.createElement("button")
         btn.innerText = bt
         btn.name=bt
         btn.id=bt
+        btn.tabindex=""+count
+        count++
         if (G.barcodeSelected===bt) {
           btn.classList.add("selected")
         }
@@ -253,7 +295,6 @@
       G.dom_btns.forEach(b=>{
         b.classList.remove("selected")
       })
-      // console.log(e.target)
       G.barcodeSelected=e.target.name
       e.target.classList.add("selected")
       clickBarcode(G.dom_input)
@@ -269,19 +310,26 @@
     }
 
 
+
     function clickBarcode(e) {
       const rawtext = G.dom_input.value
       const clean = filter_text(rawtext)
+
       G.dom_hri.innerText=clean.filtered
-      $("#dm_code").barcode(
-        clean.filtered
-        , G.barcodeSelected
-        , {moduleSize:G.sc , showHRI:false, output:'svg',}
+      G.dom_hri.classList.add('hidden')
+      G.dom_barcode.innerHTML=''
+      
+      G.dom_barcode.prepend(
+        BARCODE.bar(
+          clean.filtered,
+          G.barcodeSelected ,
+          {output:"svg"}
+        )
       )
+
+      G.dom_hri.classList.remove('hidden')
+
     }
-
-
-
 
 
 
@@ -293,7 +341,6 @@
       for (let char of raw_text.split('') ) {
         if (char.charCodeAt() > 127) {
           errors.push(`on char '${char}' ASCII:${char.charCodeAt()}. Only character codes 32-127 allowed.`)
-          // break
         } else {
           filtered+=char
         }
@@ -307,9 +354,26 @@
     }
     
 
+    window.onresize = function (event) {
+      let maxHeight = window.screen.height,
+          maxWidth = window.screen.width,
+          curHeight = window.innerHeight,
+          curWidth = window.innerWidth
 
 
+      if (G.dom_input.value===''){
+          G.dom_nav.classList.remove('hidden')
+        return
+      }
+      if (maxWidth == curWidth && maxHeight == curHeight) {
+          G.dom_nav.classList.add('hidden')
+          
+      } else {
+          G.dom_nav.classList.remove('hidden')
+      }
+    }
 
+    G.dom_input.focus()
 
 
 
